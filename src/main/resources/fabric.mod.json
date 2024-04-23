@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "randar-minimap",
+  "version": "${version}",
+  "name": "Randar Minmap",
+  "description": "A Quick and dirty minimap using the Randar exploit",
+  "website": "https://github.com/astatin3/randar-minimap",
+  "issues": "https://github.com/astatin3/randar-minimap/issues",
+  "authors": [
+    "ASTATIN3"
+  ],
+  "contact": {
+    "repo": "https://github.com/astatin3/Randar-minimap"
+  },
+  "icon": "assets/template/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "meteor": [
+      "com.astatin3.randarminimap.Addon"
+    ]
+  },
+  "mixins": [
+    "randar-minimap.mixins.json"
+  ],
+  "custom": {
+    "meteor-client:color": "225,25,25"
+  },
+  "depends": {
+    "java": ">=17",
+    "minecraft": ">=${mc_version}",
+    "meteor-client": "*"
+  }
+}

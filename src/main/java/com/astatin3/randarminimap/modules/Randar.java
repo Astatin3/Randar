@@ -7,6 +7,7 @@ import meteordevelopment.meteorclient.renderer.Renderer2D;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
+import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.entity.EntityType;
 import meteordevelopment.meteorclient.utils.render.color.Color;
@@ -26,8 +27,18 @@ public class Randar extends Module {
     @Override
     public void onDeactivate() {}
 
+
+
     public void clearMap(){
         positonRanges = new ArrayList<>();
+    }
+
+    public String getSeed(){
+        return seed.get();
+    }
+
+    public boolean setSeed(String newSeed){
+        return seed.set(newSeed);
     }
 
 
@@ -36,12 +47,14 @@ public class Randar extends Module {
         public final int startY;
         public final int endX;
         public final int endY;
+        public final long time;
 
-        public positonRange(int startX, int startY, int endX, int endY){
+        public positonRange(int startX, int startY, int endX, int endY, long time){
             this.startX = startX;
             this.startY = startY;
             this.endX = endX;
             this.endY = endY;
+            this.time = time;
         }
     }
 
@@ -80,6 +93,32 @@ public class Randar extends Module {
         .max(30000000)
         .sliderMax(500000)
         .visible(() -> true)
+        .build()
+    );
+
+    private final Setting<SettingColor> mapColor = sgGeneral.add(new ColorSetting.Builder()
+        .name("Color")
+        .description("Change the color of detected areas")
+        .defaultValue(new Color(255,0,0))
+        .visible(() -> true)
+        .build()
+    );
+
+    private final Setting<Boolean> heatmapEnable = sgGeneral.add(new BoolSetting.Builder()
+        .name("Heatmap Mode")
+        .description("Change brightness of detected areas based on age")
+        .defaultValue(false)
+        .visible(() -> true)
+        .build()
+    );
+
+    private final Setting<Double> heatmapMultiplier = sgGeneral.add(new DoubleSetting.Builder()
+        .name("Heatmap Multiplier")
+        .description("The brightness of heatmap")
+        .defaultValue(10000)
+        .min(0)
+        .sliderMax(5)
+        .visible(heatmapEnable::get)
         .build()
     );
 
@@ -136,8 +175,8 @@ public class Randar extends Module {
 //        ChatUtils.sendMsg(Formatting.AQUA, "Y: " + packet.getVelocityY());
     }
 
-    private static int clamp(long val, int min, int max) {
-        return (int)Math.max(min, Math.min(max, val));
+    private static int clamp(int val, int min, int max) {
+        return Math.max(min, Math.min(max, val));
     }
 
     private static int map(long val, int oldRange, int newRange) {
@@ -198,6 +237,13 @@ public class Randar extends Module {
         final int mapBound = mapScale.get();
         final int smear = smearSetting.get();
 
+        final double multiplier = heatmapMultiplier.get();
+        final long time = System.currentTimeMillis();
+
+        final boolean heatmapMode = heatmapEnable.get();
+
+        final Color color = mapColor.get();
+
         if(nextPositonRange != null){
             // This weirdness is to avoid a ConcurrentModificationException
             positonRanges.add(nextPositonRange);
@@ -215,12 +261,27 @@ public class Randar extends Module {
             int w = map(Math.abs(posRange.endX-posRange.startX), mapBound, width);
             int h = map(Math.abs(posRange.endY-posRange.startY), mapBound, height);
 
-//            System.out.println(x + " " + y + " " + w + " " + h);
+            final int alpha;
+
+            if(heatmapMode) {
+                final long diffTime = (time - posRange.time);
+                alpha = 256-clamp(
+                    (int) (((diffTime / 1000) * multiplier)),
+                    0, 255);
+            }else{
+                alpha = 255;
+            }
+
+//            System.out.println(diffTime/1000 + ", " + alpha);
 
             Renderer2D.COLOR.quad(
                 x-smear, y-smear,
                 w+(smear*2), h+(smear*2),
-                new Color(255,255,255));
+                new Color(
+                    color.r,
+                    color.g,
+                    color.b,
+                    alpha));
         }
 
         Renderer2D.COLOR.quad(boxX+(int)((width+ crosshair_tickness)/2),boxY, crosshair_tickness,height,new Color(255,255,255, 64));
@@ -277,7 +338,7 @@ public class Randar extends Module {
                     final int startY = (int)(z * 1280 - 128);
                     final int endX = (int)(z * 1280 - 128);
                     final int endY = (int)(z * 1280 + 1151);
-                    nextPositonRange = new positonRange(startX, startY, endX, endY);
+                    nextPositonRange = new positonRange(startX, startY, endX, endY, System.currentTimeMillis());
                     ChatUtils.sendMsg(Formatting.AQUA, "[Randar] Located someone between " + startX + "," + startY + " and " + endX + "," + endY);
                     return;
                 }
